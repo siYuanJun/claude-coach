@@ -1,22 +1,5 @@
 #!/usr/bin/env python3
-"""
-prompt_rater.py — score a user prompt 0-10 across four dimensions and emit a
-structured rating with a recommended rewrite.
-
-Dimensions:
-  - clarity      : is the ask unambiguous?
-  - constraint   : is there at least one measurable constraint (length, format, audience, deadline)?
-  - format       : is the desired output shape specified?
-  - audience     : is the reader/role named or implied?
-
-Stdlib-only. Heuristic-only — no LLM calls. The output is designed to be
-consumed by the claude-coach skill's "rate that prompt" flow.
-
-Usage:
-    python3 prompt_rater.py --prompt "Can you help me with my email?"
-    python3 prompt_rater.py --prompt "..." --json
-    python3 prompt_rater.py --sample
-"""
+"""按清晰度、约束、格式和受众对指令评分，并给出改写建议。"""
 
 import argparse
 import json
@@ -25,10 +8,36 @@ import sys
 from dataclasses import dataclass, field, asdict
 
 CLARITY_VERBS = ("write", "draft", "summarize", "review", "compare", "explain", "translate", "rewrite", "list", "rank", "score", "outline", "design", "debug", "refactor", "test")
-LENGTH_TOKENS = (r"\b\d+\s*(words?|sentences?|paragraphs?|bullets?|lines?|pages?|tokens?)\b", r"one\s+(sentence|paragraph|line)", r"short", r"brief", r"detailed")
-FORMAT_TOKENS = (r"\bmarkdown\b", r"\btable\b", r"\bjson\b", r"\byaml\b", r"\bcsv\b", r"\bbullet\b", r"\blist\b", r"\bcode\b", r"\bemail\b", r"\bmemo\b", r"\boutline\b")
-AUDIENCE_TOKENS = (r"\bfor\s+(my|a|the)\s+[A-Za-z][A-Za-z\- ]+\b", r"\btargeting\s+\w+", r"\bnon-technical\b", r"\btechnical\b", r"\bexecutive\w*\b", r"\bjunior\b", r"\bsenior\b", r"\bteam\b", r"\bcustomer\w*\b", r"\bremote workers\b")
-ROLE_TOKENS = (r"you are\b", r"act as\b", r"as a\b")
+CHINESE_VERBS = re.compile(r"起草|改写|撰写|写|总结|审阅|评审|比较|解释|翻译|列出|排序|评分|设计|排查|重构|测试|生成|整理|检查|修复")
+HAN_CHARACTERS = re.compile(r"[\u3400-\u9fff]")
+LENGTH_TOKENS = (
+    r"\b\d+\s*(words?|sentences?|paragraphs?|bullets?|lines?|pages?|tokens?)\b",
+    r"one\s+(sentence|paragraph|line)", r"short", r"brief", r"detailed",
+    r"(?:\d+|[一二两三四五六七八九十百千]+)\s*(?:个?字|句|段|条|行|页|[%％])",
+)
+CONSTRAINT_TOKENS = (
+    r"\bno\s+(more|less)\s+than\b", r"\bmust\b", r"\bcannot\b", r"\bavoid\b", r"\bonly\b",
+    r"不超过|至少|最多|以内|必须|不得|避免|仅限|只改|只保留|控制在|截止",
+)
+FORMAT_TOKENS = (
+    r"(?<![A-Za-z0-9_])(?:markdown|json|yaml|csv)(?![A-Za-z0-9_])",
+    r"\b(?:table|bullet|list|code|email|memo|outline)\b",
+    r"表格|列表|分点|大纲|备忘录|代码块|电子邮件|写(?:一)?封邮件",
+)
+AUDIENCE_TOKENS = (
+    r"\bfor\s+(my|a|the)\s+[A-Za-z][A-Za-z\- ]+\b", r"\btargeting\s+\w+",
+    r"\b(?:non-technical|technical|executive\w*|junior|senior|team|customer\w*|remote workers)\b",
+    r"(?:写给|给|面向|供|适合|读者是|受众是)[^，。？！：\n]{0,18}"
+    r"(?:同事|经理|客户|工程师|负责人|初学者|读者|团队|用户|学生|家长|管理层|开发者)",
+)
+ROLE_TOKENS = (r"you are\b", r"act as\b", r"as a\b", r"你是|请以.{1,24}的视角|作为一名")
+DIMENSION_LABELS = {
+    "clarity": "清晰度",
+    "constraint": "约束",
+    "format": "格式",
+    "audience": "受众",
+    "length_bonus": "细节加分",
+}
 
 
 @dataclass
@@ -51,6 +60,7 @@ def _has_any(text: str, patterns) -> bool:
 
 def _verb_strength(text: str) -> int:
     hits = sum(1 for v in CLARITY_VERBS if re.search(rf"\b{v}\b", text, re.IGNORECASE))
+    hits += len(set(CHINESE_VERBS.findall(text)))
     return min(hits, 2)
 
 
@@ -60,67 +70,76 @@ def rate(prompt: str) -> Rating:
 
     verb_score = _verb_strength(p)
     length_ok = _has_any(p, LENGTH_TOKENS)
-    ends_with_question = p.endswith("?")
-    is_vague_open = ends_with_question and len(p.split()) < 8
+    han_count = len(HAN_CHARACTERS.findall(p))
+    # 中文通常不以空格分词，按每两个汉字估算一个词的长度。
+    word_count = len(HAN_CHARACTERS.sub("", p).split()) + han_count // 2
+    is_vague_open = p.endswith(("?", "？")) and word_count < 8
+    length_bonus = int(word_count >= 12)
 
-    rating.clarity = max(0, min(3, verb_score + (0 if is_vague_open else 1) + (1 if len(p.split()) >= 6 else 0)))
-    rating.constraint = 2 if length_ok or _has_any(p, (r"\bno\s+(more|less)\s+than\b", r"\bmust\b", r"\bcannot\b", r"\bavoid\b", r"\bonly\b")) else 0
+    rating.clarity = min(3, verb_score + int(not is_vague_open) + int(word_count >= 6))
+    rating.constraint = 2 if length_ok or _has_any(p, CONSTRAINT_TOKENS) else 0
     rating.fmt = 2 if _has_any(p, FORMAT_TOKENS) else 0
     rating.audience = 2 if (_has_any(p, AUDIENCE_TOKENS) or _has_any(p, ROLE_TOKENS)) else 0
 
     raw = rating.clarity + rating.constraint + rating.fmt + rating.audience
-    rating.score = min(10, raw + (1 if len(p.split()) >= 12 else 0))
+    rating.score = min(10, raw + length_bonus)
 
     rating.breakdown = {
         "clarity": f"{rating.clarity}/3",
         "constraint": f"{rating.constraint}/2",
         "format": f"{rating.fmt}/2",
         "audience": f"{rating.audience}/2",
-        "length_bonus": "+1" if len(p.split()) >= 12 else "+0",
+        "length_bonus": f"+{length_bonus}",
     }
 
     if rating.score >= 8:
-        rating.what_worked = "Specific action verb, named constraint, and clear audience."
-        rating.what_to_improve = "Already well-formed. Optionally request a self-critique pass after the first draft."
+        rating.what_worked = "指令包含多项具体要求，可以直接开始。"
+        rating.what_to_improve = "有需要时，可以让 AI 在初稿之后按你的标准自查一轮。"
         rating.better_version = p
     elif rating.score >= 5:
         worked = []
         if rating.clarity >= 2:
-            worked.append("clear action")
+            worked.append("任务动作明确")
         if rating.constraint:
-            worked.append("named constraint")
+            worked.append("有具体约束")
         if rating.fmt:
-            worked.append("output format specified")
+            worked.append("指定了输出格式")
         if rating.audience:
-            worked.append("audience implied")
-        rating.what_worked = ", ".join(worked) or "concrete enough to act on"
+            worked.append("给出了受众或角色")
+        rating.what_worked = "、".join(worked) or "已有足够信息开始尝试"
         if not rating.audience:
-            rating.what_to_improve = "Name the audience or role explicitly."
+            rating.what_to_improve = "说清交付给谁，或者希望 AI 采用什么视角。"
         elif not rating.constraint:
-            rating.what_to_improve = "Add a measurable constraint (e.g. word count, must-include, must-avoid)."
+            rating.what_to_improve = "补一项可检查的要求，比如字数上限、必须包含或需要避免的内容。"
         elif not rating.fmt:
-            rating.what_to_improve = "Specify the output shape (markdown table, JSON, bullets, prose)."
+            rating.what_to_improve = "说清要的是 Markdown 表格、JSON、列表还是正文。"
         else:
-            rating.what_to_improve = "Tighten with one more constraint to cut iteration."
+            rating.what_to_improve = "补一项容易引起返工的约束。"
         rating.better_version = _augment(p, rating)
     else:
-        rating.what_worked = "There is a topic to anchor on."
-        rating.what_to_improve = "Replace the open question with a concrete ask: action verb + length + audience + format."
+        rating.what_worked = "已给出一个可继续细化的主题。"
+        rating.what_to_improve = "把问题落到一个具体动作，并补充对结果有影响的长度、受众和格式。"
         rating.better_version = _augment(p, rating, aggressive=True)
 
     return rating
 
 
 def _augment(prompt: str, rating: Rating, aggressive: bool = False) -> str:
+    chinese = bool(HAN_CHARACTERS.search(prompt))
     additions: list[str] = []
     if not rating.constraint:
-        additions.append("in 200 words")
+        additions.append("控制在 200 字以内" if chinese else "in 200 words")
     if not rating.audience:
-        additions.append("for a non-technical reader")
+        additions.append("写给非技术读者" if chinese else "for a non-technical reader")
     if not rating.fmt:
-        additions.append("as markdown bullets")
+        additions.append("用 Markdown 分点呈现" if chinese else "as markdown bullets")
     if not additions:
         return prompt
+    if chinese:
+        base = prompt.rstrip(" .?。？！!").removesuffix("吗")
+        if aggressive and not _verb_strength(prompt):
+            base = f"请围绕「{base}」给出有重点的回答"
+        return f"{base}。{'，'.join(additions)}。"
     base = prompt.rstrip(" .?")
     suffix = ", ".join(additions)
     if aggressive and not any(v in prompt.lower() for v in CLARITY_VERBS):
@@ -129,24 +148,25 @@ def _augment(prompt: str, rating: Rating, aggressive: bool = False) -> str:
 
 
 def render_human(r: Rating) -> str:
+    breakdown = "，".join(f"{DIMENSION_LABELS[key]} {value}" for key, value in r.breakdown.items())
     return (
-        f"**Their prompt:** {r.prompt}\n"
-        f"**Score:** {r.score}/10  ({r.breakdown})\n"
-        f"**What worked:** {r.what_worked}\n"
-        f"**What to improve:** {r.what_to_improve}\n"
-        f"**Better version:** {r.better_version}"
+        f"**原指令**　{r.prompt}\n"
+        f"**评分**　{r.score}/10（{breakdown}）\n"
+        f"**做得好的地方**　{r.what_worked}\n"
+        f"**最值得改的地方**　{r.what_to_improve}\n"
+        f"**下次可以这样说**　{r.better_version}"
     )
 
 
 def sample_run(as_json: bool = False) -> int:
     samples = [
-        "Can you help me with my email?",
-        "Write a 200-word product description for a noise-cancelling headphone targeting remote workers, focused on the focus-time benefit, no marketing fluff.",
-        "thoughts?",
+        "帮我写封邮件",
+        "给远程办公的用户写一段 200 字以内的降噪耳机介绍，用 Markdown 列表呈现，避免营销套话。",
+        "你怎么看？",
     ]
     ratings = [rate(s) for s in samples]
     if as_json:
-        print(json.dumps([asdict(r) for r in ratings], indent=2))
+        print(json.dumps([asdict(r) for r in ratings], ensure_ascii=False, indent=2))
         return 0
     for r in ratings:
         print(render_human(r))
@@ -155,21 +175,21 @@ def sample_run(as_json: bool = False) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Score a prompt 0-10 and emit a structured rating.")
-    parser.add_argument("--prompt", type=str, help="Prompt text to rate")
-    parser.add_argument("--json", action="store_true", help="Emit JSON instead of human-readable text")
-    parser.add_argument("--sample", action="store_true", help="Run against a built-in set of sample prompts")
+    parser = argparse.ArgumentParser(description="按四个维度为一条指令评分，满分 10 分。")
+    parser.add_argument("--prompt", type=str, help="要点评的指令")
+    parser.add_argument("--json", action="store_true", help="以 JSON 输出")
+    parser.add_argument("--sample", action="store_true", help="运行内置示例")
     args = parser.parse_args(argv)
 
     if args.sample:
         return sample_run(args.json)
 
     if not args.prompt:
-        parser.error("--prompt is required unless --sample is passed")
+        parser.error("使用 --sample 运行内置示例，或用 --prompt 提供指令。")
 
     r = rate(args.prompt)
     if args.json:
-        print(json.dumps(asdict(r), indent=2))
+        print(json.dumps(asdict(r), ensure_ascii=False, indent=2))
     else:
         print(render_human(r))
     return 0

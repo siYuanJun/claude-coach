@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""
-cheat_code_filter.py — filter the claude-coach cheat-code glossary by use case.
-
-Reads references/cheat-codes.md, parses tiered technique entries, and returns
-the top-N matches scored against a user's stated use cases (writing, coding,
-research, learning, business, etc.). Stdlib-only.
-
-Usage:
-    python3 cheat_code_filter.py --use-cases "writing,coding" --top 7
-    python3 cheat_code_filter.py --use-cases "research" --json
-    python3 cheat_code_filter.py --sample
-"""
+"""按使用场景筛选并排序 references/cheat-codes.md 中的技巧。"""
 
 import argparse
 import json
@@ -21,19 +10,35 @@ from pathlib import Path
 from typing import Iterable
 
 USE_CASE_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "writing": ("write", "draft", "tone", "audience", "rewrite", "edit", "voice", "format"),
-    "coding": ("code", "function", "bug", "debug", "review", "test", "refactor", "stack"),
-    "research": ("research", "search", "source", "cite", "summary", "synthes", "compare"),
-    "learning": ("explain", "teach", "concept", "understand", "tutorial", "learn"),
-    "business": ("plan", "strategy", "memo", "decision", "tradeoff", "stakeholder", "report"),
-    "data": ("json", "table", "structured", "parse", "format", "schema", "extract"),
+    "writing": ("write", "draft", "tone", "audience", "rewrite", "edit", "voice", "format",
+                "写作", "起草", "文案", "语气", "受众", "邮件", "风格"),
+    "coding": ("code", "function", "bug", "debug", "review", "test", "refactor", "stack",
+               "代码", "接口", "排查", "报错", "评审", "测试", "调试"),
+    "research": ("research", "search", "source", "cite", "summary", "synthes", "compare",
+                 "调研", "查找", "来源", "出处", "总结", "论据"),
+    "learning": ("explain", "teach", "concept", "understand", "tutorial", "learn",
+                 "解释", "概念", "理解", "教程", "学习", "示例"),
+    "business": ("plan", "strategy", "memo", "decision", "tradeoff", "stakeholder", "report",
+                 "规划", "方案", "决策", "取舍", "项目", "报告"),
+    "data": ("json", "table", "structured", "parse", "format", "schema", "extract",
+             "数据", "表格", "结构", "字段", "提取", "查询"),
 }
+USE_CASE_ALIASES = {
+    "写作": "writing", "编程": "coding", "写代码": "coding", "排查问题": "coding",
+    "调研": "research", "研究": "research", "学习": "learning",
+    "业务": "business", "业务工作": "business", "数据": "data", "数据分析": "data",
+}
+LEVEL_LABELS = {"Beginner": "入门", "Intermediate": "进阶", "Advanced": "高级"}
+LEVEL_NAMES = {label: name for name, label in LEVEL_LABELS.items()}
 
 DEFAULT_GLOSSARY = Path(__file__).resolve().parent.parent / "references" / "cheat-codes.md"
 
-TIER_HEADING = re.compile(r"^##\s+Tier\s+(\d+)", re.IGNORECASE)
-TECHNIQUE_HEADING = re.compile(r"^###\s+(?P<title>.+?)\s*\((?P<level>Beginner|Intermediate|Advanced)\)\s*$", re.IGNORECASE)
-EXAMPLE_LINE = re.compile(r"^\*\*Example:\*\*\s+(?P<text>.+)$")
+TIER_HEADING = re.compile(r"^##\s+(?:Tier\s+|第\s*)(\d+)", re.IGNORECASE)
+TECHNIQUE_HEADING = re.compile(
+    r"^###\s+(?P<title>.+?)\s*[（(](?P<level>Beginner|Intermediate|Advanced|入门|进阶|高级)[）)]\s*$",
+    re.IGNORECASE,
+)
+EXAMPLE_LINE = re.compile(r"^\*\*(?:Example:|示例[：:]?)\*\*\s+(?P<text>.+)$")
 
 
 @dataclass
@@ -48,7 +53,7 @@ class Technique:
 
 def parse_glossary(path: Path) -> list[Technique]:
     if not path.exists():
-        raise FileNotFoundError(f"Glossary not found at {path}")
+        raise FileNotFoundError(f"找不到使用技巧文件 {path}")
     techniques: list[Technique] = []
     current_tier = 99
     current: Technique | None = None
@@ -62,9 +67,10 @@ def parse_glossary(path: Path) -> list[Technique]:
         if tech_match:
             if current is not None:
                 techniques.append(current)
+            level = tech_match.group("level")
             current = Technique(
                 title=tech_match.group("title").strip(),
-                level=tech_match.group("level").capitalize(),
+                level=LEVEL_NAMES.get(level, level.capitalize()),
                 tier=current_tier,
                 explanation="",
                 example="",
@@ -90,7 +96,7 @@ def score_technique(tech: Technique, use_cases: Iterable[str]) -> float:
     matched_use_cases = 0
     for uc in use_cases:
         uc = uc.strip().lower()
-        keywords = USE_CASE_KEYWORDS.get(uc, (uc,))
+        keywords = USE_CASE_KEYWORDS.get(USE_CASE_ALIASES.get(uc, uc), (uc,))
         hits = sum(1 for kw in keywords if kw in text)
         if hits:
             matched_use_cases += 1
@@ -109,10 +115,10 @@ def rank(techniques: list[Technique], use_cases: list[str], top: int) -> list[Te
 
 def render_human(picks: list[Technique]) -> str:
     if not picks:
-        return "No techniques matched the supplied use cases."
+        return "没有找到匹配的技巧。"
     out: list[str] = []
     for tech in picks:
-        out.append(f"- **{tech.title}** ({tech.level}) — {tech.explanation}")
+        out.append(f"- **{tech.title}**（{LEVEL_LABELS[tech.level]}）{tech.explanation}")
         if tech.example:
             out.append(f"  _{tech.example}_")
     return "\n".join(out)
@@ -121,43 +127,43 @@ def render_human(picks: list[Technique]) -> str:
 def sample_run(as_json: bool = False) -> int:
     sample_path = DEFAULT_GLOSSARY
     if not sample_path.exists():
-        print("Sample glossary not found; place references/cheat-codes.md alongside this script.", file=sys.stderr)
+        print("找不到参考文件 references/cheat-codes.md。", file=sys.stderr)
         return 1
-    use_cases = ["writing", "coding"]
+    use_cases = ["写作", "编程"]
     picks = rank(parse_glossary(sample_path), use_cases, 5)
     if as_json:
-        print(json.dumps({"use_cases": use_cases, "picks": [asdict(t) for t in picks]}, indent=2))
+        print(json.dumps({"use_cases": use_cases, "picks": [asdict(t) for t in picks]}, ensure_ascii=False, indent=2))
         return 0
     print(render_human(picks))
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Filter cheat-codes.md by use cases.")
-    parser.add_argument("--glossary", type=Path, default=DEFAULT_GLOSSARY, help="Path to cheat-codes.md")
-    parser.add_argument("--use-cases", type=str, default="", help="Comma-separated use cases (writing,coding,research,learning,business,data)")
-    parser.add_argument("--top", type=int, default=7, help="Number of techniques to return (default 7)")
-    parser.add_argument("--json", action="store_true", help="Emit JSON instead of human-readable text")
-    parser.add_argument("--sample", action="store_true", help="Run on the bundled glossary with sample use cases")
+    parser = argparse.ArgumentParser(description="按使用场景筛选 AI 使用技巧。")
+    parser.add_argument("--glossary", type=Path, default=DEFAULT_GLOSSARY, help="使用技巧文件的路径")
+    parser.add_argument("--use-cases", type=str, default="", help="以逗号分隔的场景，如写作、编程、调研、学习、业务、数据分析")
+    parser.add_argument("--top", type=int, default=7, help="要返回的技巧数量，默认 7 项")
+    parser.add_argument("--json", action="store_true", help="以 JSON 输出")
+    parser.add_argument("--sample", action="store_true", help="运行内置示例")
     args = parser.parse_args(argv)
 
     if args.sample:
         return sample_run(args.json)
 
     if not args.use_cases:
-        parser.error("--use-cases is required unless --sample is passed")
+        parser.error("使用 --sample 运行内置示例，或用 --use-cases 指定使用场景。")
 
-    use_cases = [u.strip() for u in args.use_cases.split(",") if u.strip()]
+    use_cases = [u.strip() for u in re.split(r"[,，、]", args.use_cases) if u.strip()]
     try:
         techniques = parse_glossary(args.glossary)
     except FileNotFoundError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(str(exc), file=sys.stderr)
         return 2
 
     picks = rank(techniques, use_cases, args.top)
 
     if args.json:
-        print(json.dumps({"use_cases": use_cases, "picks": [asdict(t) for t in picks]}, indent=2))
+        print(json.dumps({"use_cases": use_cases, "picks": [asdict(t) for t in picks]}, ensure_ascii=False, indent=2))
     else:
         print(render_human(picks))
     return 0

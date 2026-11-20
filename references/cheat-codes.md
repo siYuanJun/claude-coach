@@ -1,105 +1,113 @@
-# Claude Cheat Codes — The Power-User Glossary
+# AI 使用技巧
 
-Techniques ranked by impact. Beginner techniques deliver immediate value with zero learning curve. Intermediate techniques compound over time. Advanced techniques are for users building serious workflows.
+按常见收益排列五组技巧。首次启用时，根据用户的主要用途挑选适用条目，先给可以立刻用的做法。
 
----
+## 第 1 级 · 优先练习
 
-## Tier 1 — Highest impact (start here)
+### 明确交付物（入门）
+说明你希望收到的长度、格式、受众和语气。
+**示例** 用 150 字以内的中文，向非技术产品经理解释 GraphQL。
 
-### Be specific about output (Beginner)
-Claude defaults to balanced, medium-length answers. Tell it exactly what you want: length, format, audience, tone.
-**Example:** "Explain GraphQL in 150 words for a non-technical product manager."
+### 指定适合任务的视角（入门）
+约定评审视角，帮助 AI 选对术语、判断标准和关注点。
+**示例** 请以资深数据库工程师的视角评审迁移方案，重点检查兼容性和回退路径。
 
-### Give Claude a role (Beginner)
-Assigning a role calibrates expertise, vocabulary, and judgment in one move.
-**Example:** "You are a senior security engineer reviewing this code for OWASP Top 10 issues."
+### 用示例说明期望（入门）
+给两三个输入与输出的示例，把难以描述的风格或格式展示出来。
+**示例** 参考这三封邮件的称呼和语气，为第四个场景起草一封邮件。
 
-### Show, don't tell (few-shot) (Beginner)
-Two or three examples of the input-output pattern you want will outperform paragraphs of instructions.
-**Example:** Paste 3 sample email replies you like, then ask Claude to write a fourth in the same style.
+### 要求说明可验证的依据（入门）
+多步骤问题可以要求给出结论、关键假设和核对方法。
+**示例** 先给出查询变慢的最可能原因，再列出支持这个结论的两项证据和验证方式。
 
-### Ask Claude to think before answering (Beginner)
-For anything non-trivial, add "think through this step by step before answering" or "show your reasoning". Quality jumps noticeably on multi-step problems.
+### 在原结果上继续改（入门）
+利用已经确认的背景，描述这一轮具体要调整什么。
+**示例** 基于上一版报告压缩三成，保留所有数字和结论，再加一个反例。
 
-### Iterate, don't restart (Beginner)
-Refine the previous answer rather than re-prompting from scratch. "Make it shorter", "add a counterexample", "now rewrite for executives" all keep accumulated context.
+## 第 2 级 · 提升协作效率
 
----
+### 把可复用结果做成独立产物（进阶）
+当前工具支持时，把代码、文档、图表或仪表板做成便于复用的产物。
+**示例** 把这份接口检查清单做成可直接交给同事的 Markdown 文件。
 
-## Tier 2 — Workflow accelerators
+### 核对时效信息（入门）
+近期动态、价格、版本和最新文档适合查找可核验的来源。
+**示例** 查找官方文档，确认当前版本是否支持批量导出，并附上出处。
 
-### Use artifacts for anything you'll reuse (Intermediate)
-Code, documents, diagrams, dashboards — ask Claude to put them in an artifact. You get a clean, copy-paste-ready output instead of digging through chat.
+### 要求生成交付文件（进阶）
+需要 Word、PDF、幻灯片或电子表格时，直接说清文件格式。
+**示例** 把这份调研总结做成 Word 文件，保留标题层级和来源链接。
 
-### Web search for anything time-sensitive (Beginner)
-Claude has a knowledge cutoff. For current prices, recent news, live documentation, or "what's new in X", ask Claude to search the web.
+### 分段写复杂指令（进阶）
+使用标题或标签标出背景、任务和约束，避免要求混在一起。
+**示例** 分别用 `<context>`、`<task>`、`<constraints>` 写明背景、要做的事和修改边界。
 
-### File creation for documents (Intermediate)
-For polished deliverables (Word docs, PDFs, slides, spreadsheets), ask Claude to create the file rather than paste content into chat.
+### 把偏好写成可检查的约束（进阶）
+把「简单点」落到字数、句长、适用范围或必备信息。
+**示例** 摘要控制在 200 字以内，保留三项调查数据和一条结论。
 
-### Structured output with XML tags (Intermediate)
-For complex prompts, wrap sections in tags: `<context>...</context>`, `<task>...</task>`, `<constraints>...</constraints>`. Claude parses these reliably and they prevent instruction-drift.
+## 第 3 级 · 管理上下文
 
-### Constraints over hints (Intermediate)
-"Use simple words" is a hint. "No word over 3 syllables, no sentence over 15 words" is a constraint. Constraints produce measurable changes; hints often get ignored.
+### 保存常用偏好（进阶）
+宿主支持时，把角色、常用工具和回复偏好写入设置。
+**示例** 数据分析类回答优先给结论和可复现的查询步骤。
 
----
+### 用项目集中管理资料（进阶）
+持续进行的工作可以共用资料、术语和背景。
+**示例** 把需求说明、数据字典和验收标准放到同一个项目里。
 
-## Tier 3 — Memory and context
+### 明确要求记住或忘记（进阶）
+宿主提供记忆功能时，可以说明哪些偏好希望持续生效。
+**示例** 请记住我希望接口文档包含请求示例和错误返回。该约定废止时提醒我删除。
 
-### User preferences (Intermediate)
-In Claude.ai Settings, write a paragraph about your role, tools, and how you want Claude to respond. Applies to every future chat.
+### 查找历史决定（进阶）
+宿主支持时，要求查到决定所在的对话或文档。
+**示例** 找到上周关于登录流程的结论，并给出原始对话或文档位置。
 
-### Projects (Intermediate)
-For ongoing work, create a Project. Drop reference documents in once and they are available in every chat inside that project.
+## 第 4 级 · 控制输出
 
-### Memory edits (Intermediate)
-Ask Claude to "remember that I prefer X" and the memory system persists it across conversations. Ask "forget X" to remove.
+### 对选择给出排序和取舍（入门）
+需要决策时，要求候选、排序依据和重要取舍。
+**示例** 给三个实现方案，按维护成本排序，说明各自的适用条件。
 
-### Past chat search (Intermediate)
-Claude can search your past conversations. "What did we decide about the auth flow last week?" works.
+### 指定输出结构（入门）
+根据后续用途指定 JSON、Markdown 表格或列表。
+**示例** 返回包含 `name`、`status` 和 `owner` 三个字段的 JSON 对象。
 
----
+### 随时调整说明深度（入门）
+说明读者背景和要读到哪一层。
+**示例** 先给一句结论，再用一个例子解释给刚接触 Git 的同事。
 
-## Tier 4 — Output control
+### 检查反方最强理由（进阶）
+做决定前，让 AI 找出最值得重视的反对证据。
+**示例** 给出推迟本周发布的最强理由，并说明需要哪项证据才能打消它。
 
-### Ask for alternatives (Beginner)
-"Give me three options, ranked, with tradeoffs" beats "what should I do?" every time.
+## 第 5 级 · 处理复杂任务
 
-### Force a format (Beginner)
-"Respond as a JSON object with keys: x, y, z" or "respond as a markdown table" works when you need structured data.
+### 给每个阶段单独的指令（高级）
+把复杂工作拆成调研、提纲、初稿、审阅和定稿，各阶段说明完成条件。
+**示例** 先找三份可查证的来源并列提纲，等方向确认后再写正文。
 
-### Adjust depth on demand (Beginner)
-"One sentence", "one paragraph", "deep dive", "explain like I'm 12", "explain like I'm a PhD" all reliably shift register.
+### 用具体标准做自查（高级）
+给出可观察的评价标准，让 AI 针对主要缺口修订。
+**示例** 根据准确性、信息完整度和可执行性检查这份说明，改掉问题最大的一项。
 
-### Steelman the opposite (Intermediate)
-Before committing to a plan, ask Claude to argue against it. "What's the strongest case for not doing this?"
+### 请独立评审视角找弱点（高级）
+要求指出薄弱主张及其验证办法。
+**示例** 找出方案中最薄弱的三个论点，给出反例或所需证据。
 
----
+### 按任务使用 MCP 工具（高级）
+宿主具备授权连接时，可让 AI 读取外部资料或执行明确授权的操作。
+**示例** 从 GitHub 读取这次变更的议题和差异，列出需要补测的场景。
 
-## Tier 5 — Advanced
+### 把常用流程写成 Skill（高级）
+在不同会话反复说明的一套流程，可以整理成可复用的指令。
+**示例** 把每周核对线上变更记录的步骤和报告模板整理为一个 Skill。
 
-### Chain prompts deliberately (Advanced)
-Break complex work into stages: research → outline → draft → critique → final. Each stage gets a focused prompt. Quality compounds.
+## 常见改法
 
-### Self-critique loops (Advanced)
-After Claude produces output, ask "score this 1-10 on [specific criteria], then rewrite to fix the lowest-scoring dimension." Repeat until satisfied.
-
-### Adversarial review (Advanced)
-"Read this as a skeptical senior reviewer. What are the three weakest claims and how would you attack them?"
-
-### Tool use with MCP (Advanced)
-Connect Claude to external tools (Notion, Gmail, GitHub, databases) via the MCP connector menu. Coaching, code, and content workflows can now actually take action.
-
-### Custom skills (Advanced)
-Skills like this one are reusable instruction packs. If you find yourself repeating the same setup prompt across chats, that is a skill waiting to be built.
-
----
-
-## Anti-patterns (the slow ways)
-
-- Re-explaining the same context every new chat → use a Project or User Preferences
-- Copy-pasting between Claude and another app repeatedly → ask Claude to do the multi-step work in one prompt
-- Asking yes/no questions on judgment calls → ask for ranked options with tradeoffs
-- Accepting the first draft → ask for a self-critique and one rewrite
-- Vague feedback ("make it better") → name the specific dimension ("make it more concrete", "cut 30%")
+- 每次开新会话都重述同一背景时，考虑用项目资料或用户偏好。
+- 经常在多个应用里来回复制时，看看当前工具能否直接生成需要的结果。
+- 决策问题容易得到笼统的「可以」时，要求候选排序和依据。
+- 需要检查初稿时，给出标准并让 AI 修正一轮。
+- 「再好一点」可以改成「多举一个真实用例」或「删掉三成，保留结论和数字」。

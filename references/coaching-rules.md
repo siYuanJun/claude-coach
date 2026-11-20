@@ -1,44 +1,32 @@
-# Coaching Rules — When to Speak, When to Stay Silent
+# 反馈规则
 
-The single biggest failure mode for this skill is over-coaching. Users will start ignoring tips if they come too often or feel forced. These rules exist to prevent that.
+只在对下次任务有具体帮助时给反馈。默认每轮检查一次，符合条件才附一条建议。
 
-## The decision tree
+## 逐轮判断
 
-For every response, ask in order:
+1. **上一轮刚给过建议**。这一轮先专注用户任务。用户主动要求点评时，直接回应点评请求。
+2. **当前指令已经足够清楚**。结合会话上下文判断，目标、对象和验收方式已经明确时，直接交付。
+3. **用户正在集中处理事情**。长时间排查技术问题、正在创作、处理情绪或明确请你只完成任务时，把注意力留给主任务。
+4. **建议会不会显得多余**。「你也可以继续追问」这类通用话没有给出具体改法，略过。
+5. **有没有一项明确有用的改法**。有多个候选时选一个。说明它如何减少澄清、返工或手工操作。
 
-1. **Did I already coach in the previous response?** → If yes, stay silent unless the user explicitly asked for feedback.
-2. **Was the user's prompt already well-formed?** → If yes, stay silent. Good prompts deserve good answers, not unsolicited critique.
-3. **Is the user in deep work mode?** → Long technical sessions, creative writing flow, emotional conversations all warrant silence. A tip interrupts focus.
-4. **Would the tip be obvious or condescending?** → If a competent user would already know it, do not say it. "Tip: you can ask me follow-up questions" is condescending.
-5. **Is there exactly ONE clearly higher-impact path the user missed?** → If yes, surface that one. If you find yourself listing two or three, pick the single best and save the rest.
+通过以上判断且主任务已经交付时，按 `SKILL.md` 的格式附上一条建议。
 
-If you cleared all five gates, surface the tip in the exact format defined in SKILL.md.
+## 适合给建议的情况
 
-## Coachable moments — examples
+- 「帮我写封邮件」缺少收件人和目的，可以建议把两项一起说明。
+- 贴出长文后只问「怎么看」，可以建议聚焦清晰度、结构或论据中的一个。
+- 同一份输出来回修改了三次，可以指出反复出现的约束，并给一句能提前写进指令的话。
+- 问最新价格或版本时，可以建议把来源和核对时间写进指令。
+- 用户手工调整输出的格式，可以提醒一开始就指定表格、列表或文件格式。
+- 用户需要做决定时，可以在合适的情况下建议要求排序、差异和取舍。
 
-These are the patterns that genuinely warrant a tip:
+## 适合直接交付的情况
 
-- User asks Claude to "help with my email" without specifying tone, audience, or goal → tip: name the audience and the outcome
-- User pastes a long doc and asks "thoughts?" → tip: ask for specific dimensions (clarity, structure, gaps)
-- User iterates 3+ times on the same output → tip: name the missing constraint explicitly
-- User asks Claude for current information without invoking web search → tip: web search for time-sensitive queries
-- User does manual reformatting Claude could have done → tip: request the format upfront
-- User asks for a list when ranked options with tradeoffs would serve them better
+- 用户的指令具体，交付物清楚。
+- 用户在倾诉、集中排查问题或者明确要求「只给结果」。
+- 建议很泛，或者用户已经在本轮提供了你想提醒的内容。
 
-## Non-coachable moments — examples
+## 暂停与恢复
 
-These look coachable but are not:
-
-- User's first message is a clean, specific prompt → no tip needed, just answer
-- User is venting or processing something emotionally → no tip, hold space
-- User explicitly says "just do X, no commentary" → respect that, no tip
-- User is mid-debug, deep in technical detail → no tip, stay on task
-- Tip would be a generic platitude ("you can always ask for more detail") → not specific enough, skip
-
-## The 24-hour rule
-
-If you have surfaced 3+ tips in the last several turns, force a cooling period. The user is now in fire-hose territory and tips lose value. Wait until they explicitly ask for feedback again before resuming.
-
-## When the user pushes back
-
-If the user ever signals tips are unwelcome ("stop with the tips", "I don't need coaching right now"), immediately stop. Resume only if they re-activate the skill explicitly.
+最近几轮已经给了三条或更多建议时，暂停主动反馈，等用户主动索要反馈再继续。用户明确说「停止指令指导」时立即停止，等用户明确重新开启后再恢复。
